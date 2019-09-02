@@ -1,0 +1,322 @@
+/// Mixin to manage responsive breakpoints
+/// @author Hugo Giraudel
+/// @param {String} $breakpoint - Breakpoint name
+/// @require $breakpoints
+@mixin respond-to($breakpoint) {
+    // If the key exists in the map
+    @if map-has-key($breakpoints, $breakpoint) {
+        // Prints a media query based on the value
+        @media #{inspect(map-get($breakpoints, $breakpoint))} {
+            @content;
+        }
+    }
+   
+    // If the key doesn't exist in the map
+    @else {
+        @warn "Unfortunately, no value could be retrieved from `#{$breakpoint}`. "
+            + "Available breakpoints are: #{map-keys($breakpoints)}.";
+    }
+}
+
+@mixin gradient($from, $to) {
+    background: $to;
+    background: -moz-linear-gradient(top, $from 0%, $to 100%);
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,$from), color-stop(100%,$to));
+    background: -webkit-linear-gradient(top, $from 0%,$to 100%);
+    background: -o-linear-gradient(top, $from 0%,$to 100%);
+    background: -ms-linear-gradient(top, $from 0%,$to 100%);
+    background: linear-gradient(to bottom, $from 0%,$to 100%);
+}
+
+@mixin rem($property, $px: $basefontsize) {
+ 
+    $pxvalues: null;
+    $remvalues: null;
+
+    @each $pxvalue in $px {
+        $pxvalues: append($pxvalues, ($pxvalue)+px);
+        $remvalues: append($remvalues, ($pxvalue/$basefontsize)+rem);
+    }
+
+    #{$property}: $pxvalues;
+    #{$property}: $remvalues;
+}
+
+@mixin webfont-smoothing($font) {
+    font-family: $font;
+    -webkit-font-smoothing: subpixel-antialiased;
+}
+
+@mixin fluid-type($min-vw, $max-vw, $min-font-size, $max-font-size) {
+    $u1: unit($min-vw);
+    $u2: unit($max-vw);
+    $u3: unit($min-font-size);
+    $u4: unit($max-font-size);
+
+    @if $u1 == $u2 and $u1 == $u3 and $u1 == $u4 {
+        & {
+            font-size: $min-font-size;
+            @media screen and (min-width: $min-vw) {
+                font-size: calc(#{$min-font-size} + #{strip-unit($max-font-size - $min-font-size)} * ((100vw - #{$min-vw}) / #{strip-unit($max-vw - $min-vw)}));
+            }
+            @media screen and (min-width: $max-vw) {
+                font-size: $max-font-size;
+            }
+        }
+    }
+}
+
+@function strip-unit($number) {
+    @if type-of($number) == 'number' and not unitless($number) {
+        @return $number / ($number * 0 + 1);
+    }
+  
+    @return $number;
+}
+
+/// Convert angle
+/// @author Chris Eppstein
+/// @param {Number} $value - Value to convert
+/// @param {String} $unit - Unit to convert to
+/// @return {Number} Converted angle
+
+@function convert-angle($value, $unit) {
+    $convertable-units: deg grad turn rad;
+    $conversion-factors: 1 (10grad/9deg) (1turn/360deg) (3.1415926rad/180deg);
+    @if index($convertable-units, unit($value)) and index($convertable-units, $unit) {
+      @return $value
+               / nth($conversion-factors, index($convertable-units, unit($value)))
+               * nth($conversion-factors, index($convertable-units, $unit));
+    }
+    
+    @warn "Cannot convert `#{unit($value)}` to `#{$unit}`.";
+}
+  
+/// Test if `$value` is an angle
+/// @param {*} $value - Value to test
+/// @return {Bool}
+
+@function is-direction($value) {
+    $is-direction: index((to top, to top right, to right top, to right, to bottom right, to right bottom, to bottom, to bottom left, to left bottom, to left, to left top, to top left), $value);
+    $is-angle: type-of($value) == 'number' and index('deg' 'grad' 'turn' 'rad', unit($value));
+    
+    @return $is-direction or $is-angle;
+}
+  
+/// Convert a direction to legacy syntax
+/// @param {Keyword | Angle} $value - Value to convert
+/// @require {function} is-direction
+/// @require {function} convert-angle
+@function legacy-direction($value) {
+    @if is-direction($value) == false {
+        @warn "Cannot convert `#{$value}` to legacy syntax because it doesn't seem to be an angle or a direction";
+    }
+    
+    $conversion-map: ( 
+        to top          : bottom,
+        to top right    : bottom left,
+        to right top    : left bottom,
+        to right        : left,
+        to bottom right : top left,
+        to right bottom : left top,
+        to bottom       : top,
+        to bottom left  : top right,
+        to left bottom  : right top,
+        to left         : right,
+        to left top     : right bottom,
+        to top left     : bottom right
+    );
+      
+    @if map-has-key($conversion-map, $value) {
+        @return map-get($conversion-map, $value);
+    }
+    
+    @return 90deg - convert-angle($value, 'deg');
+}
+  
+/// Mixin printing a linear-gradient 
+/// as well as a plain color fallback 
+/// and the `-webkit-` prefixed declaration
+/// @access public
+/// @param {String | List | Angle} $direction - Linear gradient direction
+/// @param {Arglist} $color-stops - List of color-stops composing the gradient
+
+@mixin linear-gradient($direction, $color-stops...) {
+    @if is-direction($direction) == false {
+        $color-stops: ($direction, $color-stops);
+        $direction: 180deg;
+    }
+    
+    background: nth(nth($color-stops, 1), 1);
+    background: -webkit-linear-gradient(legacy-direction($direction), $color-stops);
+    background: linear-gradient($direction, $color-stops);
+}
+
+//usage: 
+// @include linear-gradient(#31B7D7, #EDAC7D);
+// @include linear-gradient(to right, #E47D7D 0%, #C195D3 50%, #4FB4E8 100%);
+// @include linear-gradient(42deg, #B58234 0%, #D2B545 50%, #D7C04D 50.01%, #FFFFFF 100%);
+
+/// list-remove
+/// Remove an item from a list
+/// @param $list - A SASS list
+/// @param $index - The list index to remove
+/// @returns A SASS list
+/// @author Jake Wilson <jake.e.wilson@gmail.com>
+@function list-remove($list, $index) {
+    $newList: ();
+    @for $i from 1 through length($list) {
+        @if $i != $index {
+            $newList: append($newList, nth($list,$i), 'space');
+        }
+    }
+    @return $newList;
+  }
+
+
+/// list-sort
+/// Sort a SASS list
+/// @param $list - A SASS list
+/// @returns A sorted SASS list
+/// @requires function list-remove
+/// @author Jake Wilson <jake.e.wilson@gmail.com>
+@function list-sort($list) {
+    $sortedlist: ();
+    @while length($list) > 0 {
+        $value: nth($list,1);
+        @each $item in $list {
+        @if $item < $value {
+            $value: $item;
+        }
+        }
+        $sortedlist: append($sortedlist, $value, 'space');
+        $list: list-remove($list, index($list, $value));
+    }
+    @return $sortedlist;
+  }
+
+/// map-sort
+/// Sort map by keys
+/// @param $map - A SASS map
+/// @returns A SASS map sorted by keys
+/// @requires function list-sort
+/// @author Jake Wilson <jake.e.wilson@gmail.com>
+@function map-sort($map) {
+    $keys: list-sort(map-keys($map));
+    $sortedMap: ();
+    @each $key in $keys {
+        $sortedMap: map-merge($sortedMap, ($key: map-get($map, $key)));
+    }
+    @return $sortedMap;
+  }
+
+/// linear-interpolation
+/// Calculate the definition of a line between two points
+/// @param $map - A SASS map of viewport widths and size value pairs
+/// @returns A linear equation as a calc() function
+/// @example
+///   font-size: linear-interpolation((320px: 18px, 768px: 26px));
+/// @author Jake Wilson <jake.e.wilson@gmail.com>
+@function linear-interpolation($map) {
+    $keys: map-keys($map);
+    @if (length($keys) != 2) {
+        @error "linear-interpolation() $map must be exactly 2 values";
+    }
+    // The slope
+    $m: (map-get($map, nth($keys, 2)) - map-get($map, nth($keys, 1)))/(nth($keys, 2) - nth($keys,1));
+  
+    // The y-intercept
+    $b: map-get($map, nth($keys, 1)) - $m * nth($keys, 1);
+  
+    // Determine if the sign should be positive or negative
+    $sign: "+";
+    @if ($b < 0) {
+        $sign: "-";
+        $b: abs($b);
+    }
+  
+    @return calc(#{$m*100}vw #{$sign} #{$b});
+}
+
+
+/// poly-fluid-sizing
+/// Generate linear interpolated size values through multiple break points
+/// @param $property - A string CSS property name
+/// @param $map - A SASS map of viewport unit and size value pairs
+/// @requires function linear-interpolation
+/// @requires function map-sort
+/// @example
+///   @include poly-fluid-sizing('font-size', (576px: 22px, 768px: 24px, 992px: 34px));
+/// @author Jake Wilson <jake.e.wilson@gmail.com>
+@mixin poly-fluid-sizing($property, $map) {
+    // Get the number of provided breakpoints
+    $length: length(map-keys($map));
+  
+    // Error if the number of breakpoints is < 2
+    @if ($length < 2) {
+      @error "poly-fluid-sizing() $map requires at least values"
+    }
+  
+    // Sort the map by viewport width (key)
+    $map: map-sort($map);
+    $keys: map-keys($map);
+  
+    // Minimum size
+    #{$property}: map-get($map, nth($keys,1));
+  
+    // Interpolated size through breakpoints
+    @for $i from 1 through ($length - 1) {
+      @media (min-width:nth($keys,$i)) {
+        $value1: map-get($map, nth($keys,$i));
+        $value2: map-get($map, nth($keys,($i + 1)));
+        // If values are not equal, perform linear interpolation
+        @if ($value1 != $value2) {
+          #{$property}: linear-interpolation((nth($keys,$i): $value1, nth($keys,($i+1)): $value2));
+        } @else {
+          #{$property}: $value1;
+        }
+      }
+    }
+  
+    // Maxmimum size
+    @media (min-width:nth($keys,$length)) {
+      #{$property}: map-get($map, nth($keys,$length));
+    }
+  }
+
+/// Map deep get
+/// @author Hugo Giraudel
+/// @access public
+/// @param {Map} $map - Map
+/// @param {Arglist} $keys - Key chain
+/// @return {*} - Desired value
+@function map-deep-get($map, $keys...) {
+    @each $key in $keys {
+        $map: map-get($map, $key);
+    }
+    @return $map;
+}
+
+/// Replace `$search` with `$replace` in `$string`
+/// @author Hugo Giraudel
+/// @param {String} $string - Initial string
+/// @param {String} $search - Substring to replace
+/// @param {String} $replace ('') - New value
+/// @return {String} - Updated string
+@function str-replace($string, $search, $replace: '') {
+    $index: str-index($string, $search);
+    
+    @if $index {
+      @return str-slice($string, 1, $index - 1) + $replace + str-replace(str-slice($string, $index + str-length($search)), $search, $replace);
+    }
+    
+    @return $string;
+  }
+
+@function strip-unit($number) {
+    @if type-of($number) == 'number' and not unitless($number) {
+        @return $number / ($number * 0 + 1);
+    }
+  
+    @return $number;
+}

@@ -1,0 +1,15 @@
+$mobile: 320px;
+$largemobile: 720px; 
+$tablet: 768px;
+$horiztablet: 1024px;
+$desktop: 1200px;
+$largedesktop: 1920px;
+
+$breakpoints: (
+    'mobile':               ( min-width:    $mobile ),
+    'largemobile':          ( min-width:    $largemobile ),
+    'tablet':               ( min-width:    $tablet ),
+    'horiztablet':          ( min-width:    $horiztablet ),
+    'desktop':              ( min-width:    $desktop ),
+    'largedesktop':         ( min-width:    $largedesktop )
+) !default;

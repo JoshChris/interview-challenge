@@ -1,0 +1,17 @@
+//site-wide variables
+@import "partials/core/variables";
+
+//reset some things
+@import "partials/core/reset";
+@import "partials/core/normalize";
+
+//necessary functions and methods
+@import "partials/core/mixins";
+
+//application styles
+@import url('https://fonts.googleapis.com/css?family=Josefin+Sans:400,700&display=swap');
+
+@import "partials/global/typography";
+@import "partials/pages/index";
+@import "partials/components/list";
+@import "partials/components/detail";
